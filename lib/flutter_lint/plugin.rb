@@ -113,10 +113,10 @@ module Danger
     # return Array<FlutterViolation>
     def parse_flutter_violations(report)
       return [] if report.empty? || report.include?('No issues found!')
-
+     
       report.each_line.map do |line|
         next unless %w(info error).any? { |type| /^(\s+|\[)#{type}/.match?(line) }
-
+          
         if line.include?('[info]') || line.include?('[error]') # For flutter analyze --write=reports.txt reports
           prefix = line.include?('[info]') ? '[info]' : '[error]'
           line = line.strip.delete_prefix(prefix)
@@ -171,9 +171,22 @@ module Danger
     end
 
     def filter_modified_files_violations(violations)
-      return violations unless only_modified_files.nil? || only_modified_files == true
-
-      violations.filter { |violation| @modified_files.include? violation.file }
+    
+      filtered_violations = violations.filter do |violation|
+        begin
+          file_included = @modified_files.include?(violation.file)
+        rescue TypeError => e
+          puts "Type error: #{e.message} for #{violation.file.inspect}"
+          file_included = false
+        end
+        file_included
+      end
+    
+      if @modified_files.nil?
+        filtered_violations
+      else
+        filtered_violations.filter { |violation| violation.file && @modified_files.include?(violation.file) }
+      end
     end
 
     def flutter_installed?
